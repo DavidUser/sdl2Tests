@@ -13,6 +13,7 @@ using std::chrono::milliseconds;
 
 #include <iostream>
 #include <memory>
+#include <thread>
 
 // Fix SDL old C memory management style
 #define SAFE_UNIQUE_PTR(TYPE, DELETER)                          \
@@ -49,17 +50,28 @@ int main(void) {
   int spacer = 10;
 
   // Apply linear movement
-  const struct { int x, y; } BEGIN{100, 100}, END{100, 400};
-  const float PIXEL_PER_MS = 0.01;
+  const struct { int x, y; } BEGIN{100, 100}, END{100, 500};
+  const float PIXEL_PER_SECOND = 100;
 
   int frames = 0;
   auto last_time_clock = std::chrono::system_clock().now();
   auto last_second = last_time_clock;
-  for (float y_momentum = BEGIN.y; y_momentum < END.y;
-       y_momentum += PIXEL_PER_MS) {
-    screen_clear();
 
-    SDL_Rect rectangle{.x = (int)y_momentum,
+  auto position = [initial_position = BEGIN.x,
+                   velocity = PIXEL_PER_SECOND](float elapsed_time) {
+    return initial_position + velocity * elapsed_time;
+  };
+
+  auto start_time = std::chrono::system_clock().now();
+
+  float y = position(0);
+  do {
+    auto current_time_clock = std::chrono::system_clock().now();
+    auto elapsed_time = current_time_clock - start_time;
+    y = position(std::chrono::duration<float>(elapsed_time).count());
+
+    screen_clear();
+    SDL_Rect rectangle{.x = (int)y,
                        .y = 100 + (spacer + tile.heigth),
                        .w = tile.width,
                        .h = tile.heigth};
@@ -70,15 +82,7 @@ int main(void) {
     SDL_Event event;
     if (SDL_PollEvent(&event) && event.type == SDL_QUIT) exit(0);
 
-    auto current_time_clock = std::chrono::system_clock().now();
     auto time_diference = current_time_clock - last_time_clock;
-    if (time_diference < 1ms)
-      SDL_Delay(duration_cast<milliseconds>(1ms - time_diference).count());
-    else if (time_diference >= 2ms)
-      std::cerr << "Lag "
-                << duration_cast<milliseconds>(time_diference - 1ms).count()
-                << "ms \n";
-    last_time_clock = std::chrono::system_clock().now();
 
     ++frames;
     time_diference = current_time_clock - last_second;
@@ -90,7 +94,15 @@ int main(void) {
       frames = 0;
       last_second = current_time_clock;
     }
-  }
+
+    current_time_clock = std::chrono::system_clock().now();
+    time_diference = current_time_clock - last_time_clock;
+    if (time_diference >= 2ms)
+      std::cerr << "Lag "
+                << duration_cast<milliseconds>(time_diference - 1ms).count()
+                << "ms \n";
+    last_time_clock = std::chrono::system_clock().now();
+  } while (y < END.y);
 
   SDL_Event event;
   while (SDL_WaitEvent(&event) && event.type != SDL_QUIT)
