@@ -24,6 +24,9 @@ using std::chrono::milliseconds;
   class std::unique_ptr<TYPE>                                   \
       : public std::unique_ptr<TYPE, TYPE##__Destroyer> {       \
     using std::unique_ptr<TYPE, TYPE##__Destroyer>::unique_ptr; \
+                                                                \
+   public:                                                      \
+    operator TYPE*() { return get(); }                          \
   };
 SAFE_UNIQUE_PTR(SDL_Window, SDL_DestroyWindow)
 SAFE_UNIQUE_PTR(SDL_Renderer, SDL_DestroyRenderer)
@@ -75,9 +78,9 @@ int main(void) {
                        .y = 100 + (spacer + tile.heigth),
                        .w = tile.width,
                        .h = tile.heigth};
-    SDL_SetRenderDrawColor(renderer.get(), 255, 0, 0, 255);
-    SDL_RenderFillRect(renderer.get(), &rectangle);
-    SDL_RenderPresent(renderer.get());
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &rectangle);
+    SDL_RenderPresent(renderer);
 
     SDL_Event event;
     if (SDL_PollEvent(&event) && event.type == SDL_QUIT) exit(0);
