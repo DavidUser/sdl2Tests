@@ -59,36 +59,33 @@ int main(void) {
   int spacer = 10;
 
   // Apply linear movement
-  const struct { int x, y; } BEGIN{100, 100}, END{100, 500};
-  const float PIXEL_PER_SECOND = 100;
+  const struct { int x, y; } BEGIN{100, 100}, END{500, 300};
 
   int frames = 0;
   auto last_time_clock = std::chrono::system_clock().now();
   auto last_second = last_time_clock;
 
-  auto position = [initial_position = BEGIN.x,
-                   velocity = PIXEL_PER_SECOND](float elapsed_time) {
-    return initial_position + velocity * elapsed_time;
-  };
-
   auto start_time = std::chrono::system_clock().now();
 
   SDL_Rect rectangle{0, 0, -1, -1};
 
-  float y = position(0);
+  const auto ANIMATION_DURATION = 10s;
+
+  float x = BEGIN.x, y = BEGIN.y;
   do {
     auto current_time_clock = std::chrono::system_clock().now();
     auto elapsed_time = current_time_clock - start_time;
-    y = position(std::chrono::duration<float>(elapsed_time).count());
+    auto relative_time = std::chrono::duration<float>(elapsed_time) /
+                         std::chrono::duration<float>(ANIMATION_DURATION);
 
     // Just clear the previous object rendered
     // using previous rendered texture
     SDL_RenderCopy(renderer, texture, &rectangle, &rectangle);
+    x = BEGIN.x + (int)((END.x - BEGIN.x) * relative_time);
+    y = BEGIN.y + (int)((END.y - BEGIN.y) * relative_time);
 
-    rectangle = SDL_Rect{.x = (int)y,
-                         .y = 100 + (spacer + tile.heigth),
-                         .w = tile.width,
-                         .h = tile.heigth};
+    rectangle =
+        SDL_Rect{.x = (int)x, .y = (int)y, .w = tile.width, .h = tile.heigth};
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_RenderDrawRect(renderer, &rectangle);
@@ -117,7 +114,7 @@ int main(void) {
                 << duration_cast<milliseconds>(time_diference - 1ms).count()
                 << "ms \n";
     last_time_clock = std::chrono::system_clock().now();
-  } while (y < END.y);
+  } while (x < END.x || y < END.y);
 
   SDL_Event event;
   while (SDL_WaitEvent(&event) && event.type != SDL_QUIT)
