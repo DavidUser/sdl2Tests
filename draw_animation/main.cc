@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_gamecontroller.h>
+#include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_timer.h>
@@ -30,6 +31,7 @@ using std::chrono::milliseconds;
   };
 SAFE_UNIQUE_PTR(SDL_Window, SDL_DestroyWindow)
 SAFE_UNIQUE_PTR(SDL_Renderer, SDL_DestroyRenderer)
+SAFE_UNIQUE_PTR(SDL_Texture, SDL_DestroyTexture)
 
 int main(void) {
   std::cout << "Drawing animation" << '\n';
@@ -41,10 +43,14 @@ int main(void) {
   std::unique_ptr<SDL_Renderer> renderer(
       SDL_CreateRenderer(window.get(), -1, 0));
 
-  auto screen_clear = [&renderer]() {
-    SDL_SetRenderDrawColor(renderer.get(), 0, 255, 0, 255);
-    SDL_RenderClear(renderer.get());
-  };
+  std::unique_ptr<SDL_Texture> texture(SDL_CreateTexture(
+      renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, 600, 400));
+
+  // Save the static redering on texture
+  SDL_SetRenderTarget(renderer, texture);
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
+  SDL_SetRenderTarget(renderer, NULL);
 
   struct {
     int width = 40;
@@ -67,17 +73,23 @@ int main(void) {
 
   auto start_time = std::chrono::system_clock().now();
 
+  SDL_Rect rectangle{0, 0, -1, -1};
+
   float y = position(0);
   do {
     auto current_time_clock = std::chrono::system_clock().now();
     auto elapsed_time = current_time_clock - start_time;
     y = position(std::chrono::duration<float>(elapsed_time).count());
 
-    screen_clear();
-    SDL_Rect rectangle{.x = (int)y,
-                       .y = 100 + (spacer + tile.heigth),
-                       .w = tile.width,
-                       .h = tile.heigth};
+    // Just clear the previous object rendered
+    // using previous rendered texture
+    SDL_RenderCopy(renderer, texture, &rectangle, &rectangle);
+
+    rectangle = SDL_Rect{.x = (int)y,
+                         .y = 100 + (spacer + tile.heigth),
+                         .w = tile.width,
+                         .h = tile.heigth};
+
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_RenderDrawRect(renderer, &rectangle);
     SDL_RenderPresent(renderer);
